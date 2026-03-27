@@ -1,0 +1,26 @@
+using UnityEngine;
+ 
+public class MovimientoTablero : MonoBehaviour
+{
+    [Header("Configuración de Movimiento")]
+    [SerializeField] private float velocidad = 3.0f;
+    [SerializeField] private float amplitud = 5.0f; // Distancia máxima a cada lado
+ 
+    private Vector3 posicionInicial;
+ 
+    void Start()
+    {
+        // Guardamos la posición original para que oscile alrededor de ella
+        posicionInicial = transform.position;
+    }
+ 
+    void Update()
+    {
+        // Calculamos el desplazamiento usando la función Seno
+        // Mathf.Sin devuelve un valor entre -1 y 1
+        float desplazamiento = Mathf.Sin(Time.time * velocidad) * amplitud;
+ 
+        // Aplicamos el movimiento solo en el eje X (izquierda/derecha)
+        transform.position = new Vector3(posicionInicial.x + desplazamiento, posicionInicial.y, posicionInicial.z);
+    }
+}
