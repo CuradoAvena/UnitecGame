@@ -56,3 +56,84 @@ public sealed class DraggablePiece : MonoBehaviour
             Vector2 screenPosition = GetCurrentScreenPosition();
             Vector3 mousePoint = new Vector3(screenPosition.x, screenPosition.y, zCoordinate);
             transform.position = mainCamera.ScreenToWorldPoint(mousePoint) + mouseOffset;
+        }
+
+        // 3. Detectar la liberación del clic o toque
+        if (isDragging && GetSelectReleasedThisFrame())
+        {
+            EndDrag();
+        }
+    }
+
+    private void StartDrag(Vector2 screenPosition)
+    {
+        isDragging = true;
+        zCoordinate = mainCamera.WorldToScreenPoint(transform.position).z;
+        
+        Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(new Vector3(screenPosition.x, screenPosition.y, zCoordinate));
+        mouseOffset = transform.position - mouseWorldPos;
+    }
+
+    private void EndDrag()
+    {
+        isDragging = false;
+        CheckSnap();
+    }
+
+    private void CheckSnap()
+    {
+        if (targetSnapPoint == null) return;
+
+        if (Vector3.Distance(transform.position, targetSnapPoint.position) <= snapDistance)
+        {
+            SnapToTarget();
+        }
+    }
+
+    private void SnapToTarget()
+    {
+        isSnapped = true;
+        
+        if (TryGetComponent<Collider>(out var col)) col.enabled = false;
+
+        transform.position = targetSnapPoint.position;
+        transform.rotation = targetSnapPoint.rotation;
+        transform.SetParent(targetSnapPoint.parent);
+
+        Debug.Log($"[DevLog] {gameObject.name} ensamblado en Unity 6.");
+    }
+
+    #region New Input System Helpers
+    private bool GetSelectPressedThisFrame()
+    {
+        if (currentMouse != null && currentMouse.leftButton.wasPressedThisFrame) return true;
+        if (currentTouch != null && currentTouch.primaryTouch.press.wasPressedThisFrame) return true;
+        return false;
+    }
+
+    private bool GetSelectIsHeld()
+    {
+        if (currentMouse != null && currentMouse.leftButton.isPressed) return true;
+        if (currentTouch != null && currentTouch.primaryTouch.press.isPressed) return true;
+        return false;
+    }
+
+    private bool GetSelectReleasedThisFrame()
+    {
+        if (currentMouse != null && currentMouse.leftButton.wasReleasedThisFrame) return true;
+        if (currentTouch != null && currentTouch.primaryTouch.press.wasReleasedThisFrame) return true;
+        return false;
+    }
+
+    private Vector2 GetCurrentScreenPosition()
+    {
+        if (currentTouch != null && currentTouch.primaryTouch.press.isPressed)
+            return currentTouch.primaryTouch.position.ReadValue();
+            
+        if (currentMouse != null)
+            return currentMouse.position.ReadValue();
+
+        return Vector2.zero;
+    }
+    #endregion
+}
