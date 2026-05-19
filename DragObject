@@ -1,87 +1,58 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(Collider))]
 public sealed class DraggablePiece : MonoBehaviour
 {
     [Header("Setup")]
-    [SerializeField] private Transform targetSnapPoint; // La pieza correspondiente en el robot original
-    [SerializeField] private float snapDistance = 1.5f;   // Qué tan cerca debe estar para encajar
+    [SerializeField] private Transform targetSnapPoint;
+    [SerializeField] private float snapDistance = 1.5f;
 
     private Camera mainCamera;
-    private bool isDragging = false;
+    private bool isDragging;
     private float zCoordinate;
     private Vector3 mouseOffset;
-    private bool isSnapped = false;
+    private bool isSnapped;
+
+    // Referencias al New Input System de Unity 6
+    private Mouse currentMouse;
+    private Touchscreen currentTouch;
 
     void Start()
     {
         mainCamera = Camera.main;
+        currentMouse = Mouse.current;
+        currentTouch = Touchscreen.current;
     }
 
-    // Detecta el click sostenido (requiere un Collider en el objeto)
-    void OnMouseDown()
+    void Update()
     {
         if (isSnapped) return;
 
-        isDragging = true;
-        zCoordinate = mainCamera.WorldToScreenPoint(gameObject.transform.position).z;
-        mouseOffset = gameObject.transform.position - GetMouseWorldPos();
+        HandleInput();
     }
 
-    void OnMouseDrag()
+    private void HandleInput()
     {
-        if (!isDragging || isSnapped) return;
-
-        transform.position = GetMouseWorldPos() + mouseOffset;
-    }
-
-    void OnMouseUp()
-    {
-        if (isSnapped) return;
-
-        isDragging = false;
-        CheckSnap();
-    }
-
-    private Vector3 GetMouseWorldPos()
-    {
-        Vector3 mousePoint = Input.mousePosition; // Nota: Si usas el New Input System puro, aquí usarías Mouse.current.position.ReadValue()
-        mousePoint.z = zCoordinate;
-        return mainCamera.ScreenToWorldPoint(mousePoint);
-    }
-
-    private void CheckSnap()
-    {
-        if (targetSnapPoint == null) return;
-
-        // Calculamos la distancia entre la pieza suelta y su lugar correcto
-        float distance = Vector3.Distance(transform.position, targetSnapPoint.position);
-
-        if (distance <= snapDistance)
+        // 1. Detectar el inicio del clic o toque
+        if (GetSelectPressedThisFrame())
         {
-            // ¡Encaja!
-            SnapToTarget();
+            Vector2 screenPosition = GetCurrentScreenPosition();
+            Ray ray = mainCamera.ScreenPointToRay(screenPosition);
+
+            if (Physics.Raycast(ray, out RaycastHit hit))
+            {
+                // Verificamos si el raycast golpeó este objeto específico
+                if (hit.transform == transform)
+                {
+                    StartDrag(screenPosition);
+                }
+            }
         }
-    }
 
-    private void SnapToTarget()
-    {
-        isSnapped = true;
-        
-        // Desactivamos colisiones para que ya no se pueda mover
-        if (TryGetComponent<Collider>(out var col)) col.enabled = false;
-
-        // La posicionamos exactamente en su lugar y rotación del robot final
-        transform.position = targetSnapPoint.position;
-        transform.rotation = targetSnapPoint.rotation;
-
-        // Opcional: Hacerla hija del robot final para mantener orden
-        transform.SetParent(targetSnapPoint.parent);
-
-        // Aquí puedes encender el MeshRenderer del robot original y destruir esta pieza suelta,
-        // o simplemente dejar esta pieza fija y activar un efecto visual (partículas).
-        Debug.Log($"{gameObject.name} ensamblado correctamente.");
-        
-        // TODO: Notificar al RobotManager para verificar si el robot está completo
-    }
-}
+        // 2. Procesar el arrastre sostenido
+        if (isDragging && GetSelectIsHeld())
+        {
+            Vector2 screenPosition = GetCurrentScreenPosition();
+            Vector3 mousePoint = new Vector3(screenPosition.x, screenPosition.y, zCoordinate);
+            transform.position = mainCamera.ScreenToWorldPoint(mousePoint) + mouseOffset;
