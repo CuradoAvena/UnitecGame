@@ -1,0 +1,87 @@
+using UnityEngine;
+
+[RequireComponent(typeof(Collider))]
+public sealed class DraggablePiece : MonoBehaviour
+{
+    [Header("Setup")]
+    [SerializeField] private Transform targetSnapPoint; // La pieza correspondiente en el robot original
+    [SerializeField] private float snapDistance = 1.5f;   // Qué tan cerca debe estar para encajar
+
+    private Camera mainCamera;
+    private bool isDragging = false;
+    private float zCoordinate;
+    private Vector3 mouseOffset;
+    private bool isSnapped = false;
+
+    void Start()
+    {
+        mainCamera = Camera.main;
+    }
+
+    // Detecta el click sostenido (requiere un Collider en el objeto)
+    void OnMouseDown()
+    {
+        if (isSnapped) return;
+
+        isDragging = true;
+        zCoordinate = mainCamera.WorldToScreenPoint(gameObject.transform.position).z;
+        mouseOffset = gameObject.transform.position - GetMouseWorldPos();
+    }
+
+    void OnMouseDrag()
+    {
+        if (!isDragging || isSnapped) return;
+
+        transform.position = GetMouseWorldPos() + mouseOffset;
+    }
+
+    void OnMouseUp()
+    {
+        if (isSnapped) return;
+
+        isDragging = false;
+        CheckSnap();
+    }
+
+    private Vector3 GetMouseWorldPos()
+    {
+        Vector3 mousePoint = Input.mousePosition; // Nota: Si usas el New Input System puro, aquí usarías Mouse.current.position.ReadValue()
+        mousePoint.z = zCoordinate;
+        return mainCamera.ScreenToWorldPoint(mousePoint);
+    }
+
+    private void CheckSnap()
+    {
+        if (targetSnapPoint == null) return;
+
+        // Calculamos la distancia entre la pieza suelta y su lugar correcto
+        float distance = Vector3.Distance(transform.position, targetSnapPoint.position);
+
+        if (distance <= snapDistance)
+        {
+            // ¡Encaja!
+            SnapToTarget();
+        }
+    }
+
+    private void SnapToTarget()
+    {
+        isSnapped = true;
+        
+        // Desactivamos colisiones para que ya no se pueda mover
+        if (TryGetComponent<Collider>(out var col)) col.enabled = false;
+
+        // La posicionamos exactamente en su lugar y rotación del robot final
+        transform.position = targetSnapPoint.position;
+        transform.rotation = targetSnapPoint.rotation;
+
+        // Opcional: Hacerla hija del robot final para mantener orden
+        transform.SetParent(targetSnapPoint.parent);
+
+        // Aquí puedes encender el MeshRenderer del robot original y destruir esta pieza suelta,
+        // o simplemente dejar esta pieza fija y activar un efecto visual (partículas).
+        Debug.Log($"{gameObject.name} ensamblado correctamente.");
+        
+        // TODO: Notificar al RobotManager para verificar si el robot está completo
+    }
+}
